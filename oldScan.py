@@ -19,12 +19,6 @@ class PDF_READER:
     def __init__(self, fname):
         self.fname = fname
 
-    def containsNumber(self, value):
-        for character in value:
-            if character.isdigit():
-                return True
-        return False
-
     def read_quantum_pdf(self):
         df = pd.concat(tabula.read_pdf(self.fname, 
         pages = 'all',
@@ -152,6 +146,80 @@ class PDF_READER:
 
         #Sorted data as a pandas dataframe       
         return df
+
+    def new_sunrise(self):
+
+        EAPR = False
+        HCPC = False
+
+        columns = ['Item Number','UM', 'Qty Ordered', 'Qty Shipped', 'Qty Open', 'HCPC', 'Ext Price']
+        row = ['Nan',  'Nan', '0', '0', '0','Nan', '0' ]
+        df = pd.DataFrame(columns = columns)
+        index = 0
+        with pdfplumber.open(self.fname) as pdf:
+            index = 0
+            for page in pdf.pages:
+                index = 0
+
+                if EAPR:
+                    EAPR = False
+                    HCPC = False
+                    df.loc[len(df)] = row
+                    row = ['Nan',  'Nan', '0', '0', '0','Nan', '0' ]
+                
+                lines = page.extract_text().splitlines()
+                
+                while(index < len(lines)):
+                    lines[index] = re.sub(patternCent, repl, lines[index])
+                    lines[index] = re.sub(patternApost, repl, lines[index])
+
+                    list = lines[index].split()
+
+                    if EAPR:
+                        if(re.search(patternEA, lines[index]) or re.search(patternPR, lines[index]) or HCPC):
+                            EAPR = False
+                            HCPC = False
+                            df.loc[len(df)] = row
+                            row = ['Nan',  'Nan', '0', '0', '0','Nan', '0' ]
+                            continue
+                        else:
+                            if  re.search(patternH, lines[index]): #And EAPR is True
+                                row[5] = list[1] #Extract the HCPC
+                                HCPC = True
+                                continue
+                            else:
+                                  if(re.search(patternNum, list[-1]) and re.search(patternDec, list[-1]) and EAPR):
+                                   
+                                    try:
+
+                                        num = float(list[-1]) #Double checks it is a number that follow their decimal format.
+                                     
+                                        row[6] = num  #Extract Extended Cost
+                                     
+                                    except:
+                                        index+=1
+                                        continue
+                    else:
+                        if(re.search(patternEA, lines[index]) or re.search(patternPR, lines[index])):
+                            EAPR = True 
+                            # print(lines[index].split())
+                            row[0] = list[0] #Extract the Item Number
+                            row[1] = list[1] #Extract the UM (not sure what this is.... Either EA or PR)
+
+                            #Ensure that these values exists in the pdf.
+                            if(len(list) > 2):
+                                row[2] = list[2] #Extract Quantity Ordered
+                                if(len(list) > 3):
+                                    row[3] = list[3] #Extract Quantity Shipped
+                                    if(len(list) > 4):
+                                        row[4] = list[4] #Extract quantity Open
+                            
+                            #index+=1
+                    index+=1
+            df = df[df['Ext Price'] != "0"]
+            df = df[df['Ext Price'] != 0]
+            print(df)
+            return df
 
     def write_csv(self, sorted_table):
         sorted_table.to_csv('test3.csv', mode = 'w', index = False)

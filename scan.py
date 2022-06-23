@@ -15,7 +15,7 @@ class PDF_READER:
         sorted_table.to_csv('{}.csv'.format(name), mode='w', index=False)
     #Read quantum pdf returns a pandas dataframe with all of the needed information
     def read_quantum_pdf(self, fname):
-        print(fname)
+    
         columns = ['QuoteID', 'Item Number', 'Qty',
                    'MSRP', 'Ext Price', 'Vendor']
         row = ['100',  'Nan', '0', '0', '0', 'Quantum']
@@ -66,7 +66,7 @@ class PDF_READER:
         #Shouldn't reach here but return if we do
         df = df[df['Ext Price'] != "0.00"]
         self.write_csv(df, fname.strip(".pdf"))
-        print(df)
+       
         return df
 
      #Read tilite pdf returns a pandas dataframe with all of the needed information
@@ -119,7 +119,7 @@ class PDF_READER:
 
                     index +=1
 
-        print(df)
+       
         self.write_csv(df, fname.strip(".pdf"))
         return df
         
@@ -153,7 +153,7 @@ class PDF_READER:
                    
                    #If it follows desired decimal format 
                     if(re.search(patternDec, list[-1]) and list[-1] != "0.00"):
-                        print(list)
+                       
                         row[4] = list[-1]  #ext cost
                         row[3] = list[-4] #MSRP (Retail Price)
                         
@@ -179,9 +179,11 @@ class PDF_READER:
 
         return df
 
+    #Figures out which vendor the pdf is coming from
+    #Assumes that for example if it is a quantum pdf then it will contain the name quantum whereas non of the others will
+    #unsure if this is a safe assumption yet will need more testing!
     def scan_name(self, fname):
         with pdfplumber.open(fname) as pdf:
-            print(fname)
             for page in pdf.pages:
                 lines = page.extract_text()
                 if "quantum" in lines.lower():
@@ -195,17 +197,22 @@ class PDF_READER:
 
 if __name__ == "__main__":
 
+    #Columns for the big dataframe
     columns = ['QuoteID', 'Item Number', 'Qty', 'MSRP', 'Ext Price', 'Vendor']
         
       
     all_df = pd.DataFrame(columns=columns)
 
     reader = PDF_READER()
+
+    #Gets a list of all pdfs in your working directory.
     list_of_pdf_filenames = glob.glob('*pdf')
 
+    #Loops through each pdf in your directory
     for  fname in list_of_pdf_filenames:
         all_df = pd.concat([all_df,reader.scan_name(fname)])
     
+    #Writes all dataframes into one giant table. 
     reader.write_csv(all_df, "EveryPDF")
 
 
